@@ -52,7 +52,6 @@ jobs:
       # Step 6: Combine Angular and Django into deployment package
       - name: Prepare deployment package
         run: |
-          cp -r angular-dist/* post-back-do-front-backend-master/static/
           zip -r release.zip post-back-do-front-backend-master
 
       # Step 7: Upload deployment artifact
