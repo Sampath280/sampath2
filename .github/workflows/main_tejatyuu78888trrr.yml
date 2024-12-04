@@ -66,7 +66,6 @@ jobs:
     needs: build
     environment:
       name: 'Production'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
 
     steps:
       # Step 1: Download deployment artifact
@@ -79,7 +78,13 @@ jobs:
       - name: Unzip artifact
         run: unzip release.zip
 
-      # Step 3: Deploy to Azure Web App
+      # Step 3: Login to Azure
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # Step 4: Deploy to Azure Web App
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v2
