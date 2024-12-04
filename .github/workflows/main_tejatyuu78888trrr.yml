@@ -43,7 +43,7 @@ jobs:
         working-directory: ./post-back-do-front-backend-master
         run: |
           python -m pip install --upgrade pip
-          pip install -r ./post-back-do-front-backend-master/requirements.txt
+          pip install -r ./requirements.txt
 
       - name: Create virtual environment for Django
         working-directory: ./post-back-do-front-backend-master
