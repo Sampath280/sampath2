@@ -1,4 +1,7 @@
-name: Build and deploy Angular front-end and Django back-end to Azure
+# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+
+name: Build and Deploy Angular and Django to Azure Web App - tejatyuu78888trrr
 
 on:
   push:
@@ -7,100 +10,109 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Angular front-end build job
-  build-angular:
+  build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      # Frontend: Angular build
+      - name: Set up Node.js for Angular
         uses: actions/setup-node@v3
         with:
           node-version: '20.x'
 
-      - name: Install dependencies and build Angular app
+      - name: Install Angular dependencies
+        working-directory: ./angular-17-crud-example-master
         run: |
-          cd angular-17-crud-example-master
           npm install
-          npm run build --prod
 
-      - name: Zip Angular build artifact
+      - name: Build Angular project
+        working-directory: ./angular-17-crud-example-master
         run: |
-          cd angular-17-crud-example-master
-          zip -r dist/angular-app.zip dist/
+          npm run build --if-present
 
-      - name: Upload Angular artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: angular-app
-          path: angular-17-crud-example-master/dist/angular-app.zip
-
-  # Django back-end build job
-  build-django:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
+      # Backend: Django setup and build
+      - name: Set up Python for Django
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.9'
 
-      - name: Install dependencies for Django
+      - name: Install Django dependencies
+        working-directory: ./post-back-do-front-backend-master
         run: |
-          python -m venv venv
-          source venv/bin/activate
-          pip install -r post-back-do-front-backend-master/requirements.txt
+          python -m pip install --upgrade pip
+          pip install -r ./post-back-do-front-backend-master/requirements.txt
 
-      - name: Run Django migrations
+      - name: Set up Django environment and apply migrations
+        working-directory: ./post-back-do-front-backend-master
         run: |
           source venv/bin/activate
-          cd post-back-do-front-backend-master
           python manage.py makemigrations
           python manage.py migrate
 
-      - name: Zip Django back-end artifact
+      # Zip both frontend and backend artifacts for deployment
+      - name: Zip Angular artifact for deployment
+        working-directory: ./angular-17-crud-example-master
         run: |
-          cd post-back-do-front-backend-master
-          zip -r release-django.zip .
+          zip -r angular-release.zip dist/
 
-      - name: Upload Django artifact
+      - name: Zip Django artifact for deployment
+        working-directory: ./post-back-do-front-backend-master
+        run: |
+          zip -r django-release.zip .
+
+      - name: Upload Angular artifact for deployment job
         uses: actions/upload-artifact@v3
         with:
-          name: django-backend
-          path: post-back-do-front-backend-master/release-django.zip
+          name: angular-app
+          path: ./angular-17-crud-example-master/angular-release.zip
 
-  # Deployment job
+      - name: Upload Django artifact for deployment job
+        uses: actions/upload-artifact@v3
+        with:
+          name: django-app
+          path: ./post-back-do-front-backend-master/django-release.zip
+
   deploy:
     runs-on: ubuntu-latest
-    needs:
-      - build-angular
-      - build-django
+    needs: build
+    environment:
+      name: 'Production'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+
     steps:
-      - name: Download Angular artifact
+      - name: Download Angular artifact from build job
         uses: actions/download-artifact@v3
         with:
           name: angular-app
 
-      - name: Download Django artifact
+      - name: Download Django artifact from build job
         uses: actions/download-artifact@v3
         with:
-          name: django-backend
+          name: django-app
 
-      - name: Deploy Angular front-end to Azure Web App
+      - name: Unzip Angular artifact for deployment
+        run: unzip angular-release.zip -d ./angular-app
+
+      - name: Unzip Django artifact for deployment
+        run: unzip django-release.zip -d ./django-app
+
+      - name: Deploy Angular to Azure Web App (Frontend)
+        id: deploy-angular
         uses: azure/webapps-deploy@v2
         with:
-          app-name: 'angular-app-service'
+          app-name: 'angular-app-name'
           slot-name: 'Production'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_ANGULAR }}
-          package: angular-17-crud-example-master/dist/angular-app.zip
+          publish-profile: ${{ secrets.AZURE_APP_PUBLISH_PROFILE_ANGULAR }}
+          package: ./angular-app
 
-      - name: Deploy Django back-end to Azure Web App
+      - name: Deploy Django to Azure Web App (Backend)
+        id: deploy-django
         uses: azure/webapps-deploy@v2
         with:
-          app-name: 'django-app-service'
+          app-name: 'django-app-name'
           slot-name: 'Production'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_DJANGO }}
-          package: post-back-do-front-backend-master/release-django.zip
+          publish-profile: ${{ secrets.AZURE_APP_PUBLISH_PROFILE_DJANGO }}
+          package: ./django-app
