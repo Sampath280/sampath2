@@ -26,7 +26,7 @@ jobs:
         run: |
           npm install
           npm run build --prod
-          mv dist/angular-17-crud-example-master ../dist
+          mv dist/* ../post-back-do-front-backend-master/static/
 
       # Step 4: Set up Python environment for Django backend
       - name: Set up Python environment
