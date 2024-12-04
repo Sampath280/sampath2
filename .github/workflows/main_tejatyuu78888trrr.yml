@@ -1,7 +1,7 @@
 # Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 
-name: Build and deploy Node.js app to Azure Web App - tejatyuu78888trrr
+name: Build and deploy Angular app and Django API to Azure Web App
 
 on:
   push:
@@ -10,53 +10,117 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-angular:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node.js version
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '20.x'
 
-      - name: npm install, build, and test
+      - name: Install Angular dependencies
         run: |
           npm install
-          npm run build --if-present
-          npm run test --if-present
 
-      - name: Zip artifact for deployment
-        run: zip release.zip ./* -r
+      - name: Build Angular project
+        run: |
+          ng build --prod
 
-      - name: Upload artifact for deployment job
+      - name: Zip Angular build artifact
+        run: |
+          zip -r angular-release.zip dist/*
+
+      - name: Upload Angular artifact for deployment
         uses: actions/upload-artifact@v3
         with:
-          name: node-app
-          path: release.zip
+          name: angular-app
+          path: angular-release.zip
 
-  deploy:
+  build-django:
     runs-on: ubuntu-latest
-    needs: build
-    environment:
-      name: 'Production'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
 
     steps:
-      - name: Download artifact from build job
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.9'
+
+      - name: Set up virtual environment
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+
+      - name: Install Django dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run Django migrations
+        run: |
+          source venv/bin/activate
+          python manage.py makemigrations
+          python manage.py migrate
+
+      - name: Zip Django app artifact
+        run: |
+          zip -r django-release.zip ./*
+
+      - name: Upload Django artifact for deployment
+        uses: actions/upload-artifact@v3
+        with:
+          name: django-app
+          path: django-release.zip
+
+  deploy-angular:
+    runs-on: ubuntu-latest
+    needs: build-angular
+    environment:
+      name: 'Production'
+      url: ${{ steps.deploy-to-angular-webapp.outputs.webapp-url }}
+
+    steps:
+      - name: Download Angular artifact from build job
         uses: actions/download-artifact@v3
         with:
-          name: node-app
+          name: angular-app
 
-      - name: Unzip artifact for deployment
-        run: unzip release.zip
+      - name: Unzip Angular build artifact
+        run: unzip angular-release.zip
 
-      - name: 'Deploy to Azure Web App'
-        id: deploy-to-webapp
+      - name: Deploy Angular to Azure Web App
+        id: deploy-to-angular-webapp
         uses: azure/webapps-deploy@v2
         with:
-          app-name: 'tejatyuu78888trrr'
+          app-name: 'angular-17-crud-example-master'
           slot-name: 'Production'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_3E4BFF49B345414EA2800E53D1D2D51F }}
-          package: .
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_ANGULAR }}
+          package: ./dist
+
+  deploy-django:
+    runs-on: ubuntu-latest
+    needs: build-django
+    environment:
+      name: 'Production'
+      url: ${{ steps.deploy-to-django-webapp.outputs.webapp-url }}
+
+    steps:
+      - name: Download Django artifact from build job
+        uses: actions/download-artifact@v3
+        with:
+          name: django-app
+
+      - name: Unzip Django app artifact
+        run: unzip django-release.zip
+
+      - name: Deploy Django to Azure Web App
+        id: deploy-to-django-webapp
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: 'post-back-do-front-backend-master'
+          slot-name: 'Production'
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_DJANGO }}
+          package: ./
